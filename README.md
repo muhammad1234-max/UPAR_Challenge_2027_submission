@@ -2,10 +2,14 @@
 
 [![WACV 2027](https://img.shields.io/badge/WACV%20Workshop-2027-blue.svg)](https://vap.aau.dk/rws)
 [![UPAR Track 1](https://img.shields.io/badge/UPAR%20Challenge-Track%201%20PAR-brightgreen.svg)](https://www.codabench.org/competitions/18180/)
+[![Paper PDF](https://img.shields.io/badge/Paper-PDF-red.svg)](report/Anatomical_Strip_Routed_ConvNeXt_with_Source_Prior_Harmonic_Calibration_for_Pedestrian_Attribute_Recognition.pdf)
 [![License: CC BY 4.0](https://img.shields.io/badge/License-CC_BY_4.0-lightgrey.svg)](https://creativecommons.org/licenses/by/4.0/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-ee4c2c.svg)](https://pytorch.org/)
 
 Official code repository and technical report source for **UPAR Challenge 2027 Track 1 (Pedestrian Attribute Recognition)** at the **Real-World Surveillance: Applications and Challenges Workshop (WACV 2027)**.
+
+📄 **Read the Technical Report (PDF):**  
+👉 **[Anatomical Strip Routed ConvNeXt with Source Prior Harmonic Calibration for Pedestrian Attribute Recognition.pdf](report/Anatomical_Strip_Routed_ConvNeXt_with_Source_Prior_Harmonic_Calibration_for_Pedestrian_Attribute_Recognition.pdf)**
 
 ---
 
@@ -95,7 +99,8 @@ Evaluated across all **33,407 validation crops** of the harmonized UPAR benchmar
 │   └── run_pipeline.py                # End-to-end evaluation, inference & CodaBench exporter
 ├── scripts/
 │   └── train_stratified_fast.py       # Domain-stratified FP16 AMP training pipeline
-├── report/                            # IEEE/CVF WACV 2027 LaTeX Report Sources
+├── report/                            # IEEE/CVF WACV 2027 LaTeX Report Sources & PDF
+│   ├── Anatomical_Strip_Routed_ConvNeXt_with_Source_Prior_Harmonic_Calibration_for_Pedestrian_Attribute_Recognition.pdf # Technical Report PDF
 │   ├── main_assignment_3page.tex      # 3-Page Assignment / Technical Report
 │   ├── main_workshop.tex              # 6-Page Camera-Ready Workshop Paper
 │   ├── main.bib                       # Complete bibliography (16 entries)
