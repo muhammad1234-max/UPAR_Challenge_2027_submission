@@ -1,0 +1,46 @@
+% WACV 2026/2027 Paper Template - Real-World Surveillance Workshop
+\documentclass[10pt,twocolumn,letterpaper]{article}
+
+%%%%%%%%% PAPER TYPE
+%\usepackage[review,algorithms]{wacv}      % Review version algorithms track
+%\usepackage[review,applications]{wacv}    % Review version applications track
+\usepackage{wacv}                         % Camera-ready / Workshop report version
+%\usepackage[pagenumbers]{wacv}            % Page numbers for preprint/draft
+
+\input{preamble}
+
+\definecolor{wacvblue}{rgb}{0.21,0.49,0.74}
+\usepackage[pagebackref,breaklinks,colorlinks,allcolors=wacvblue]{hyperref}
+
+%%%%%%%%% PAPER DETAILS
+\def\wacvPaperID{UPAR-2027-Track1}
+\def\confName{WACVW}
+\def\confYear{2027}
+
+%%%%%%%%% TITLE
+\title{Anatomical Strip-Routed ConvNeXt with Source-Prior Harmonic Calibration for Pedestrian Attribute Recognition}
+
+%%%%%%%%% AUTHORS
+\author{
+  Technical Report \& Challenge Submission\\
+  UPAR Challenge 2027 -- Track 1: Pedestrian Attribute Recognition\\
+  Real-World Surveillance: Applications and Challenges Workshop (RWS 2027)
+}
+
+\begin{document}
+\maketitle
+
+\input{sec/0_abstract}    
+\input{sec/1_intro}
+\input{sec/2_related}
+\input{sec/3_method}
+\input{sec/4_experiments}
+\input{sec/5_conclusion}
+
+{
+    \small
+    \bibliographystyle{ieeenat_fullname}
+    \bibliography{main}
+}
+
+\end{document}

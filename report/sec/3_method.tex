@@ -1,0 +1,240 @@
+\section{Methodology}
+\label{sec:method}
+
+In this section, we present the architecture and calibration mechanisms of our proposed framework for UPAR Track 1. The overall system consists of: (1) a shared-stem ConvNeXt feature extractor with frozen early representations, (2) the Anatomical Strip-Routed Head with Cross-Strip Multi-Head Attention, (3) the Source-Prior Harmonic Calibrator, and (4) the Joint Execution Vectorization (JEV) dual-head inference engine.
+
+\begin{figure*}[t]
+\centering
+\resizebox{0.98\textwidth}{!}{
+\begin{tikzpicture}[
+    >=Stealth,
+    node distance=0.6cm and 0.8cm,
+    font=\sffamily\footnotesize,
+    box/.style={rectangle, draw=black!70, rounded corners=3pt, align=center, thick, minimum height=0.7cm},
+    inputbox/.style={box, fill=gray!15, text width=1.6cm},
+    frozenbox/.style={box, fill=blue!12, draw=blue!70, text width=2.0cm},
+    trainbox/.style={box, fill=teal!15, draw=teal!70, text width=2.0cm},
+    basebox/.style={box, fill=purple!12, draw=purple!70, text width=2.4cm},
+    stripbox/.style={box, fill=orange!15, draw=orange!70, text width=1.8cm, minimum height=0.55cm},
+    attbox/.style={box, fill=yellow!20, draw=yellow!80!black, text width=2.4cm},
+    routebox/.style={box, fill=green!15, draw=green!70!black, text width=2.4cm},
+    calibbox/.style={box, fill=red!12, draw=red!70, text width=2.6cm},
+    ensbox/.style={box, fill=wacvblue!15, draw=wacvblue!80, text width=2.5cm, line width=1.2pt},
+    line/.style={draw=black!80, -{Stealth[length=2.2mm]}, thick},
+    subtext/.style={font=\sffamily\scriptsize, text=black!75}
+]
+
+    % 1. Input Image
+    \node[inputbox] (input) {
+        \textbf{Pedestrian Crop}\\
+        \scriptsize $3 \times 256 \times 192$\\
+        \tiny (PA-100K/PETA/Mkt)
+    };
+
+    % 2. ConvNeXt Backbone
+    \node[frozenbox, right=of input] (backbone_frozen) {
+        \textbf{ConvNeXt-Base}\\
+        \scriptsize Stem \& Stages 0--2\\
+        \tiny \textbf{[Strictly Frozen]}
+    };
+
+    \node[trainbox, right=of backbone_frozen] (stage4) {
+        \textbf{Stage 4}\\
+        \scriptsize $C=1024$\\
+        \tiny \textbf{[Trainable]}
+    };
+
+    % Split point
+    \coordinate[right=0.4cm of stage4] (split);
+
+    % Top Branch: Baseline GAP Head
+    \node[basebox, above right=0.7cm and 0.6cm of split] (gap_head) {
+        \textbf{Baseline GAP Head}\\
+        \scriptsize $\mathrm{GAP} \to \text{Linear}(40)$\\
+        \tiny Logits $\mathbf{l}_{\text{base}} \in \mathbb{R}^{40}$
+    };
+
+    % Bottom Branch: ASR-HC Head - Strip Slicing
+    \node[stripbox, below right=1.2cm and 0.5cm of split] (strip_head) {
+        \textbf{Strip $S_0$: Head}\\
+        \tiny Top 1/3 (10 attrs)
+    };
+    \node[stripbox, below=0.15cm of strip_head] (strip_torso) {
+        \textbf{Strip $S_1$: Torso}\\
+        \tiny Mid 1/3 (15 attrs)
+    };
+    \node[stripbox, below=0.15cm of strip_torso] (strip_lower) {
+        \textbf{Strip $S_2$: Lower}\\
+        \tiny Bot 1/3 (15 attrs)
+    };
+
+    % Cross-Strip Attention
+    \node[attbox, right=0.6cm of strip_torso] (csmha) {
+        \textbf{Cross-Strip MHA}\\
+        \scriptsize 8 Heads + Learnable $E_{\text{pos}}$\\
+        \tiny Inter-Strip Context Refinement
+    };
+
+    % Anatomical Classifiers & Holistic Fusion
+    \node[routebox, right=0.6cm of csmha] (routers) {
+        \textbf{Anatomical Classifiers}\\
+        \scriptsize Head (10) $\oplus$ Torso (15) $\oplus$ Lower (15)\\
+        \tiny $\mathbf{l}_{\text{total}} = \mathbf{l}_{\text{routed}} + 0.3 \cdot \mathbf{l}_{\text{fused}}$
+    };
+
+    % Calibration Module
+    \node[calibbox, right=0.8cm of routers] (calib) {
+        \textbf{Source-Prior Calibrator}\\
+        \scriptsize Asymmetric Thresholds $\tau_j$\\
+        \scriptsize Intra-Group Color Margin (0.15)\\
+        \tiny Odds-Ratio Warping for CodaBench $>0.5$
+    };
+
+    % JEV Dual-Head Ensemble
+    \node[ensbox, above right=0.4cm and 0.6cm of calib] (ensemble) {
+        \textbf{JEV Dual-Head Ensemble}\\
+        \scriptsize $0.70 \cdot P_{\text{base}} + 0.30 \cdot P_{\text{asr}}$\\
+        \tiny \textbf{Harmonic Mean: 81.86\%}
+    };
+
+    % Connections
+    \draw[line] (input) -- (backbone_frozen);
+    \draw[line] (backbone_frozen) -- (stage4);
+    \draw[thick] (stage4) -- (split);
+    
+    % Route to GAP
+    \draw[line] (split) |- (gap_head);
+    
+    % Route to Strips
+    \draw[line] (split) |- (strip_head);
+    \draw[line] (split) |- (strip_torso);
+    \draw[line] (split) |- (strip_lower);
+
+    % Connect strips to CS-MHA
+    \draw[line] (strip_head.east) -- ++(0.2,0) |- ([yshift=0.2cm]csmha.west);
+    \draw[line] (strip_torso.east) -- (csmha.west);
+    \draw[line] (strip_lower.east) -- ++(0.2,0) |- ([yshift=-0.2cm]csmha.west);
+
+    % Connect CS-MHA to Routers
+    \draw[line] (csmha) -- (routers);
+
+    % Connect Routers to Calibrator
+    \draw[line] (routers) -- (calib);
+
+    % Connect GAP and Calibrated ASR to Ensemble
+    \draw[line] (gap_head.east) -| ([xshift=-0.3cm]ensemble.north) -- (ensemble.north);
+    \draw[line] (calib.east) -| (ensemble.south);
+
+    % Sub-branch annotations
+    \node[subtext, above=0.05cm of gap_head] {(a) Global Context Pathway};
+    \node[subtext, below=0.08cm of strip_lower] {(b) Anatomical Strip-Routed Pathway (ASR-HC)};
+
+\end{tikzpicture}
+}
+\caption{Architectural overview of the proposed framework. Pedestrian crops ($256 \times 192$) are processed through a shared ConvNeXt-Base backbone whose early stages (0--2) are strictly frozen. The JEV shared-stem vectorizes two complementary pathways: (a) a Global Average Pooling (GAP) baseline head, and (b) the Anatomical Strip-Routed Head (ASR-HC) with 3 horizontal strips ($S_0, S_1, S_2$), 8-head Cross-Strip Attention (CS-MHA), and disjoint anatomical classification. Calibrated probabilities are merged via an optimal JEV blend reaching 81.86\% Harmonic Mean.}
+\label{fig:architecture}
+\end{figure*}
+
+\subsection{Shared-Stem ConvNeXt Feature Backbone}
+Let $X \in \mathbb{R}^{3 \times H \times W}$ denote an input pedestrian crop normalized to dimensions $H=256$ and $W=192$, reflecting canonical pedestrian surveillance aspect ratios. We adopt the ConvNeXt-Base architecture~\cite{liu2022convnet} pre-trained on ImageNet. 
+
+To eliminate domain-induced catastrophic forgetting across heterogeneous surveillance benchmarks (PA-100K, PETA, and Market1501), the convolutional stem and initial stages (Stages 0, 1, and 2) are frozen during training. Only the final stage (Stage 4), containing deep semantic transformations with $C=1024$ channels, is optimized with gradient descent. The output of Stage 4 is a deep spatial feature tensor $F \in \mathbb{R}^{C \times H' \times W'}$.
+
+\subsection{Anatomical Strip Partitioning}
+Pedestrian surveillance imagery possesses an inherently upright vertical orientation. Conventional global average pooling collapses all vertical spatial dimensions, causing severe inter-attribute interference across distinct body parts (e.g., shoe color erroneously leaking into hat attribute predictions).
+
+We horizontally slice $F$ along the vertical axis into three non-overlapping anatomical strips:
+\begin{align}
+    S_0 &= F\left[:, \; 0 : h_1, \; :\right] \quad &\text{(Head / Shoulders)} \\
+    S_1 &= F\left[:, \; h_1 : h_2, \; :\right] \quad &\text{(Torso / Upper-Body)} \\
+    S_2 &= F\left[:, \; h_2 : H', \; :\right] \quad &\text{(Lower-Body / Footwear)}
+\end{align}
+where $h_1 = \lfloor H'/3 \rfloor$ and $h_2 = \lfloor 2H'/3 \rfloor$. Adaptive spatial average pooling yields three anatomical tokens:
+\begin{equation}
+    t_i = \mathrm{GAP}(S_i) \in \mathbb{R}^C, \quad i \in \{0, 1, 2\}
+\end{equation}
+
+\subsection{Cross-Strip Multi-Head Attention Refinement}
+While spatial strip partitioning isolates localized regions, certain pedestrian attributes require multi-part spatial reasoning. For instance, a backpack typically rests on the shoulders (Strip 0) but extends across the torso (Strip 1); similarly, gender and age judgments rely on holistic body proportions.
+
+To reconcile localized precision with cross-region context, we introduce a Cross-Strip Multi-Head Attention (CS-MHA) refinement module with $h=8$ attention heads. We define learnable anatomical positional embeddings $E_{\mathrm{pos}} = [e_0, e_1, e_2]^\top \in \mathbb{R}^{3 \times C}$. The positional-aware tokens are formulated as:
+\begin{equation}
+    \tilde{T} = \left[ t_0 + e_0, \; t_1 + e_1, \; t_2 + e_2 \right]^\top \in \mathbb{R}^{3 \times C}
+\end{equation}
+We pass $\tilde{T}$ through multi-head self-attention, residual connections, LayerNorm, and a Feed-Forward Network (FFN) with GELU activation:
+\begin{align}
+    Z &= \mathrm{LayerNorm}\left(\tilde{T} + \mathrm{MHA}\left(Q=\tilde{T}, K=\tilde{T}, V=\tilde{T}\right)\right) \\
+    Z' &= \mathrm{LayerNorm}\left(Z + \mathrm{FFN}(Z)\right) \in \mathbb{R}^{3 \times C}
+\end{align}
+The refined strip tokens are extracted as $r_0 = Z'_0$, $r_1 = Z'_1$, and $r_2 = Z'_2 \in \mathbb{R}^C$.
+
+\subsection{Anatomical Attribute Routing and Residual Fusion}
+The official UPAR 40-attribute vocabulary is systematically decomposed into three mutually exclusive, anatomically grounded subsets:
+\begin{itemize}
+    \item \textbf{Head Attributes} ($\mathcal{A}_{\mathrm{head}}$, 10 attributes): Age-Young, Age-Adult, Age-Old, Gender-Female, Hair-Length-Short, Hair-Length-Long, Hair-Length-Bald, Accessory-Glasses-Normal, Accessory-Glasses-Sun, Accessory-Hat.
+    \item \textbf{Torso Attributes} ($\mathcal{A}_{\mathrm{torso}}$, 15 attributes): UpperBody-Length-Short, 12 UpperBody Colors (Black, Blue, Brown, Green, Grey, Orange, Pink, Purple, Red, White, Yellow, Other), Accessory-Backpack, Accessory-Bag.
+    \item \textbf{Lower-Body Attributes} ($\mathcal{A}_{\mathrm{lower}}$, 15 attributes): LowerBody-Length-Short, 12 LowerBody Colors (Black, Blue, Brown, Green, Grey, Orange, Pink, Purple, Red, White, Yellow, Other), LowerBody-Type-Trousers\&Shorts, LowerBody-Type-Skirt\&Dress.
+\end{itemize}
+
+Dedicated sub-classifiers $W_{\mathrm{head}} \in \mathbb{R}^{10 \times C}$, $W_{\mathrm{torso}} \in \mathbb{R}^{15 \times C}$, and $W_{\mathrm{lower}} \in \mathbb{R}^{15 \times C}$ compute the routed logits:
+\begin{equation}
+    \mathbf{l}_{\mathrm{head}} = W_{\mathrm{head}} \mathrm{LN}(r_0), \;
+    \mathbf{l}_{\mathrm{torso}} = W_{\mathrm{torso}} \mathrm{LN}(r_1), \;
+    \mathbf{l}_{\mathrm{lower}} = W_{\mathrm{lower}} \mathrm{LN}(r_2)
+\end{equation}
+These are assembled into the routed logit vector $\mathbf{l}_{\mathrm{routed}} \in \mathbb{R}^{40}$. 
+
+Simultaneously, a holistic fusion classifier operates on all concatenated strip tokens $[r_0 \parallel r_1 \parallel r_2] \in \mathbb{R}^{3C}$ to produce cross-strip holistic logits $\mathbf{l}_{\mathrm{fused}} \in \mathbb{R}^{40}$. The total logit prediction is formed via residual harmonization:
+\begin{equation}
+    \mathbf{l}_{\mathrm{total}} = \mathbf{l}_{\mathrm{routed}} + w_{\mathrm{fusion}} \cdot \mathbf{l}_{\mathrm{fused}}
+\end{equation}
+where $w_{\mathrm{fusion}} = 0.3$ is a parameterized fusion weight.
+
+\subsection{Source-Prior Harmonic Calibration}
+In surveillance multi-label learning, attribute positive frequencies range from $>90\%$ (Age-Adult) to $<0.2\%$ (rare clothing colors). When evaluated against unweighted label mA, static 0.5 decision boundaries cause severe minority-class recall collapse.
+
+To solve this without data leakage, we formulate \textbf{Asymmetric Source-Prior Harmonic Calibration}:
+\paragraph{Training Prior Extraction:}
+We extract the positive prior $\pi_j$ strictly from training split annotations:
+\begin{equation}
+    \pi_j = \frac{1}{N_{\mathrm{train}}} \sum_{i=1}^{N_{\mathrm{train}}} y_{i,j}^{\mathrm{train}}
+\end{equation}
+
+\paragraph{Asymmetric Harmonic Decision Thresholds:}
+For rare attributes ($\pi_j < 0.50$), decision thresholds are adaptively lowered to recover minority-class recall. Dominant attributes ($\pi_j \ge 0.50$) remain anchored at $0.50$ to protect instance precision:
+\begin{equation}
+    \tau_j = \begin{cases}
+        \mathrm{clip}\left( 0.50 \cdot \left(\frac{\pi_j}{0.50}\right)^\alpha, \; \tau_{\min}, \; 0.50 \right) & \text{if } \pi_j < 0.50 \\
+        0.50 & \text{if } \pi_j \ge 0.50
+    \end{cases}
+    \label{eq:asymmetric_thresh}
+\end{equation}
+where $\alpha = 0.30$ and $\tau_{\min} = 0.25$.
+
+\paragraph{Continuous Odds-Ratio Probability Warping:}
+Official challenge benchmark servers (e.g., CodaBench) hardcode a fixed decision boundary at $\hat{y}_j \ge 0.5$. To map our optimal per-attribute thresholds $\tau_j$ into continuous probabilities without changing the evaluation platform, we apply odds-ratio probability warping:
+\begin{equation}
+    p^*_j = \frac{p_j / \tau_j}{\frac{p_j}{\tau_j} + \frac{1 - p_j}{1 - \tau_j}}
+    \label{eq:odds_warping}
+\end{equation}
+By mathematical construction:
+\begin{equation}
+    p^*_j \ge 0.50 \iff p_j \ge \tau_j
+\end{equation}
+enabling the external evaluation worker to execute optimal harmonic thresholding seamlessly.
+
+\paragraph{Intra-Group Color Margin Competition:}
+To eliminate multi-color hallucination across the 12 UpperBody colors ($\mathcal{C}_{\mathrm{upper}}$) and 12 LowerBody colors ($\mathcal{C}_{\mathrm{lower}}$), we enforce competitive margin suppression. Let $c^* = \arg\max_{c \in \mathcal{C}} p_c$ be the dominant predicted color. Any secondary color $c \in \mathcal{C} \setminus \{c^*\}$ is suppressed if its probability falls below the leader by margin $\delta = 0.15$:
+\begin{equation}
+    p'_c = \begin{cases}
+        p_c & \text{if } p_c \ge p_{c^*} - \delta \\
+        \min(0.5 \cdot p_c, 0.05) & \text{otherwise}
+    \end{cases}
+\end{equation}
+
+\subsection{Joint Execution Vectorization (JEV) Engine}
+The JEV engine hosts the shared ConvNeXt backbone and evaluates both the Baseline GAP head and the ASR-HC head synchronously from a single cached feature map. Predictions are merged via:
+\begin{equation}
+    P_{\mathrm{ens}} = w \cdot P_{\mathrm{baseline}} + (1 - w) \cdot P_{\mathrm{ASR-HC}}
+\end{equation}
+achieving ensemble gains with zero redundant backbone computation.

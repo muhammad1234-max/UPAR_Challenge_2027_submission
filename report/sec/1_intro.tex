@@ -1,0 +1,23 @@
+\section{Introduction}
+\label{sec:intro}
+
+Pedestrian Attribute Recognition (PAR) plays a pivotal role in modern intelligent video surveillance, multi-camera person re-identification, forensic search, and public safety analytics~\cite{specker2023upar,cormier2023upar,liu2017hydraplus}. By transforming unstructured visual observations of pedestrians into structured semantic descriptions (such as clothing type, colors, accessories, gender, and age), PAR provides human-interpretable queries that bridge low-level visual features and high-level identity retrieval.
+
+Despite notable advancements driven by deep convolutional and vision transformer architectures, deploying PAR in practical surveillance environments remains notoriously difficult due to three fundamental obstacles:
+\begin{enumerate}
+    \item \textbf{Heterogeneous Domain Shifts:} Surveillance datasets collected across diverse geographical locations, optical sensors, illumination conditions, and resolutions (e.g., PA-100K~\cite{liu2017hydraplus}, PETA~\cite{deng2014pedestrian}, and Market1501~\cite{zheng2015scalable}) exhibit pronounced distribution disparities, making generalizable attribute extraction challenging.
+    \item \textbf{Spatial Misalignment and Visual Interference:} Standard global pooling strategies compress spatial feature maps into a single 1D vector. Consequently, localized regional attributes (such as hats, glasses, backpacks, or footwear) suffer from severe visual interference and feature dilution from unrelated body regions.
+    \item \textbf{Severe Class Imbalance and Color Hallucination:} Pedestrian attributes exhibit extreme long-tailed distributions. For instance, demographic attributes such as ``Age-Adult'' or ``Hair-Length-Short'' appear in the overwhelming majority of surveillance frames, whereas rare clothing colors (such as orange, purple, or pink) comprise less than 1\% of the dataset. Naive binary cross-entropy optimization paired with a canonical $0.5$ classification threshold leads to severe performance degradation on minority classes, while simultaneously inducing multi-color hallucinations (e.g., predicting multiple conflicting colors for a single upper-body garment).
+\end{enumerate}
+
+To rigorously benchmark PAR systems under standardized, real-world conditions, the UPAR Challenge 2027 (held in conjunction with the Real-World Surveillance Workshop at WACV 2027) establishes a unified 40-attribute ontology spanning 131,076 pedestrian images across training (97,669 images) and validation (33,407 images) splits~\cite{specker2023upar,cormier2024upar}. The primary ranking metric in Track 1 is the Harmonic Mean ($\text{HM}$) of label-based mean Accuracy ($\text{mA}$) and instance-based F1-score ($\text{Ins-F1}$), which strictly penalizes models that sacrifice individual pedestrian precision for unweighted label recall, or vice versa.
+
+In this technical report, we present our complete competitive system for UPAR 2027 Track 1: \textbf{Anatomical Strip-Routed ConvNeXt with Source-Prior Harmonic Calibration (ASR-HC)} coupled with a \textbf{Joint Execution Vectorization (JEV)} inference engine. 
+
+The primary contributions of this work are summarized as follows:
+\begin{itemize}
+    \item We design the \textbf{ASR-HC Head}, which divides the deep feature representations of a modern ConvNeXt backbone~\cite{liu2022convnet} into three horizontal anatomical strips (Head/Shoulders, Torso/Upper-Body, and Lower-Body/Footwear). An 8-head Cross-Strip Multi-Head Self-Attention module refines token interactions across body parts with learnable positional embeddings, after which localized tokens are routed exclusively to their anatomically corresponding attribute classifiers.
+    \item We formulate an \textbf{Asymmetric Source-Prior Harmonic Calibration} method that utilizes empirical training priors to adaptively calibrate rare attributes without cross-split leakage, combined with intra-group margin suppression and continuous odds-ratio probability warping for seamless fixed-threshold evaluation.
+    \item We develop a \textbf{Joint Execution Vectorization (JEV)} architecture that shares the feature extractor across both a Global Average Pooling (GAP) baseline head and the specialized ASR-HC head, enabling multi-head and ensemble inference in a single forward pass.
+    \item Extensive empirical evaluations across the full 33,407-image UPAR validation benchmark demonstrate that ASR-HC elevates Instance Precision up to \textbf{86.28\%} (+8.55\%) and Instance Accuracy to \textbf{74.99\%}, while our vectorized JEV ensemble establishes a top-tier Harmonic Mean of \textbf{81.86\%}.
+\end{itemize}

@@ -1,0 +1,58 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Checkpoints and Model Weights (Violates GitHub 100MB limit)
+*.pth
+*.pt
+*.ckpt
+*.bin
+*.onnx
+results/checkpoints/
+
+# Submission archives and large zip files (Violates GitHub 100MB limit)
+*.zip
+*.tar
+*.gz
+*.rar
+results/predictions/
+
+# Scratch & temporary staging directories
+scratch/
+*_staging/
+_code_sub_staging/
+_jev_code_sub_staging/
+
+# Raw surveillance dataset images (must be downloaded via download_datasets.py)
+data/Market1501/
+data/PA100k/
+data/PETA/
+*.tar.gz
+
+# Jupyter Notebook Checkpoints
+.ipynb_checkpoints/
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+
+# IDE & OS metadata
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# LaTeX compilation temporaries
+report/*.aux
+report/*.log
+report/*.out
+report/*.bbl
+report/*.blg
+report/*.synctex.gz
+report/*.toc
+report/*.fdb_latexmk
+report/*.fls
